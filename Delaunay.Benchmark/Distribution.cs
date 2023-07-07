@@ -9,7 +9,7 @@ namespace Delaunay.Benchmark;
 
 public class Distribution
 {
-    private Random random = new();
+    private readonly Random _random = new();
     public enum Type { Uniform, Gaussian, Grid };
 
     public IEnumerable<IPoint> GetPoints(Type type, int count)
@@ -27,7 +27,7 @@ public class Distribution
     public IEnumerable<IPoint> Uniform(int count)
     {
         for (var i = 0; i < count; i++)
-            yield return new Point(random.NextDouble() * Math.Pow(10, 3), random.NextDouble() * Math.Pow(10, 3));
+            yield return new Point(_random.NextDouble() * Math.Pow(10, 3), _random.NextDouble() * Math.Pow(10, 3));
     }
 
     public IEnumerable<IPoint> Grid(int count)
@@ -45,7 +45,7 @@ public class Distribution
 
     private double PseudoNormal()
     {
-        var v = random.NextDouble() + random.NextDouble() + random.NextDouble() + random.NextDouble() + random.NextDouble() + random.NextDouble();
+        var v = _random.NextDouble() + _random.NextDouble() + _random.NextDouble() + _random.NextDouble() + _random.NextDouble() + _random.NextDouble();
         return Math.Min(0.5 * (v - 3) / 3, 1);
     }
 }
