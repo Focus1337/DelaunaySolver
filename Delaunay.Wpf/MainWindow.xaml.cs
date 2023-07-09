@@ -33,16 +33,22 @@ public partial class MainWindow
     {
         var width = (float)(ActualWidth != 0 ? ActualWidth : Width);
         var height = (float)(ActualHeight != 0 ? ActualHeight : Height);
+
         var samplesCircle = UniformPoissonDiskSampler
-            .SampleCircle(new Vector2(width / 2, height / 3), (int)CircleRadius.Value, 40, 30)
+            .SampleCircle(new Vector2(width / 2, height / 3), (int)CircleRadius.Value, 40)
             .Select(x => new Point(x.X, x.Y));
+
+        // var samplesRectangle =
+        //     UniformPoissonDiskSampler
+        //         .SampleRectangle(new Vector2(width / 4, height / 6), new Vector2(width / 4 * 3, height / 6 * 4), 40)
+        //         .Select(x => new Point(x.X, x.Y));
 
         var samplesRectangle =
             UniformPoissonDiskSampler
-                .SampleRectangle(new Vector2(width / 4, height / 6), new Vector2(width / 4 * 3, height / 6 * 4), 40, 30)
+                .SampleRectangle(new Vector2(0, 0), new Vector2(1000, 1000), 40)
                 .Select(x => new Point(x.X, x.Y));
 
-        foreach (var sample in samplesCircle)
+        foreach (var sample in samplesRectangle)
         {
             _points.Add(sample);
             PointsCount.Content = _points.Count.ToString();
@@ -57,11 +63,12 @@ public partial class MainWindow
 
         _stopwatch = Stopwatch.StartNew();
         Refresh();
-
-        _triangulator?.ForEachTriangleEdge(edge => { DrawLine(edge.P, edge.Q, _triangleBrush); });
-        _stopwatch.Stop();
-
         TriangulationTime.Content = _stopwatch.Elapsed;
+
+        _stopwatch.Restart();
+        _triangulator?.ForEachTriangleEdge(edge => { DrawLine(edge.P, edge.Q, _triangleBrush); });
+        RenderTime.Content = _stopwatch.Elapsed;
+        _stopwatch.Stop();
     }
 
     private void ClearDrawArea() =>
@@ -104,21 +111,16 @@ public partial class MainWindow
         DrawArea.Children.Add(line);
     }
 
-    private void SaveCanvasAsImage(Canvas canvas, string filePath)
+    private static void SaveCanvasAsImage(Canvas canvas, string filePath)
     {
-        // Создаем экземпляр класса RenderTargetBitmap с размерами Canvas
         var renderBitmap = new RenderTargetBitmap(
             (int)canvas.ActualWidth, (int)canvas.ActualHeight,
             96, 96, PixelFormats.Pbgra32);
-
-        // Рендерим и сохраняем содержимое Canvas в RenderTargetBitmap
         renderBitmap.Render(canvas);
 
-        // Создаем экземпляр класса PngBitmapEncoder для сохранения изображения в формате PNG
         var bitmapEncoder = new PngBitmapEncoder();
         bitmapEncoder.Frames.Add(BitmapFrame.Create(renderBitmap));
 
-        // Сохраняем изображение в указанный файл
         using var fileStream = new FileStream(filePath, FileMode.Create);
         bitmapEncoder.Save(fileStream);
     }
@@ -133,12 +135,13 @@ public partial class MainWindow
         _stopwatch?.Reset();
         PointsCount.Content = 0.ToString();
         TriangulationTime.Content = TimeSpan.Zero.ToString(TimeFormat);
+        RenderTime.Content = TimeSpan.Zero.ToString(TimeFormat);
         ClearDrawArea();
     }
 
     private void OnGeneratePointsClick(object sender, RoutedEventArgs e)
     {
-        for (var i = 0; i < 1; i++)
+        while (_points.Count <= (int)PointsMultiplier.Value)
             GenerateSamples();
     }
 

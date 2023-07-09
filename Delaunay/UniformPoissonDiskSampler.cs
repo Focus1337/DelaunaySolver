@@ -1,20 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Numerics;
+﻿using System.Numerics;
 
-namespace Delaunay.Wpf;
+namespace Delaunay;
 
-// http://theinstructionlimit.com/fast-uniform-poisson-disk-sampling-in-c <- copied from Renaud Bédard
-
-// Adapated from java source by Herman Tulleken
-// http://www.luma.co.za/labs/2008/02/27/poisson-disk-sampling/
-
-// The algorithm is from the "Fast Poisson Disk Sampling in Arbitrary Dimensions" paper by Robert Bridson
-// http://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph07-poissondisk.pdf
-
+// http://theinstructionlimit.com/fast-uniform-poisson-disk-sampling-in-c
+// распределение/выборка Пуассона
+// это алгоритм для генерации равномерно распределенных точек в двумерном пространстве с минимальным расстоянием между точками
 public static class UniformPoissonDiskSampler
 {
     private static readonly Random Random = new();
+    
+    // отвечает за плотность заполнения пространства
     private const int DefaultPointsPerIteration = 30;
 
     static readonly float SquareRootTwo = (float)Math.Sqrt(2);

@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:Delaunay.Wpf"
         xmlns:customControls="clr-namespace:Delaunay.Wpf.CustomControls"
         mc:Ignorable="d"
-        Title="MainWindow" Height="900" Width="900">
+        Title="MainWindow" Height="1200" Width="1200">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="1*" />
@@ -22,14 +22,17 @@
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                <Label Content="Render time:"></Label>
+                <Label Content="Triangulation time:"></Label>
                 <Label x:Name="TriangulationTime" Content="00:00:00" />
+
+                <Label Content="Render time:"></Label>
+                <Label x:Name="RenderTime" Content="00:00:00" />
             </StackPanel>
         </DockPanel>
 
         <!-- <customControls:PanAndZoomCanvas x:Name="DrawArea" Grid.Row="1" Grid.ColumnSpan="5" VerticalAlignment="Stretch" -->
         <!--                                  HorizontalAlignment="Stretch" /> -->
-        
+
         <Canvas x:Name="DrawArea" Grid.Row="1" Grid.ColumnSpan="5" VerticalAlignment="Stretch"
                 HorizontalAlignment="Stretch">
         </Canvas>
@@ -49,10 +52,22 @@
         </Grid>
 
         <DockPanel HorizontalAlignment="Stretch" Margin="10" Grid.Row="3">
-            <TextBox Text="{Binding ElementName=CircleRadius, Path=Value, UpdateSourceTrigger=PropertyChanged}"
-                     DockPanel.Dock="Right" TextAlignment="Right" Width="40" />
-            <Slider Maximum="500" TickPlacement="BottomRight" TickFrequency="5" IsSnapToTickEnabled="True"
-                    Name="CircleRadius" Value="220" />
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Slider Maximum="500" TickPlacement="BottomRight" TickFrequency="5" IsSnapToTickEnabled="True"
+                        Width="350" Minimum="1"
+                        Name="CircleRadius" Value="220" />
+                <TextBox Text="{Binding ElementName=CircleRadius, Path=Value, UpdateSourceTrigger=PropertyChanged}"
+                         DockPanel.Dock="Right" TextAlignment="Right" Width="40" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Slider Maximum="1000000" TickPlacement="BottomRight" IsSnapToTickEnabled="True"
+                        Width="350" Minimum="1"
+                        Name="PointsMultiplier" Value="1000" />
+                <TextBox Text="{Binding ElementName=PointsMultiplier, Path=Value, UpdateSourceTrigger=PropertyChanged}"
+                         DockPanel.Dock="Right" TextAlignment="Right" Width="40" />
+            </StackPanel>
         </DockPanel>
     </Grid>
 </Window>
