@@ -14,11 +14,12 @@ namespace Delaunay.Wpf;
 
 public static class UniformPoissonDiskSampler
 {
-    public const int DefaultPointsPerIteration = 30;
+    private static readonly Random Random = new();
+    private const int DefaultPointsPerIteration = 30;
 
     static readonly float SquareRootTwo = (float)Math.Sqrt(2);
 
-    struct Settings
+    private struct Settings
     {
         public Vector2 TopLeft, LowerRight, Center;
         public Vector2 Dimensions;
@@ -28,7 +29,7 @@ public static class UniformPoissonDiskSampler
         public int GridWidth, GridHeight;
     }
 
-    struct State
+    private struct State
     {
         public Vector2?[,] Grid;
         public List<Vector2> ActivePoints, Points;
@@ -48,7 +49,7 @@ public static class UniformPoissonDiskSampler
     public static List<Vector2> SampleRectangle(Vector2 topLeft, Vector2 lowerRight, float minimumDistance,
         int pointsPerIteration) => Sample(topLeft, lowerRight, null, minimumDistance, pointsPerIteration);
 
-    static List<Vector2> Sample(Vector2 topLeft, Vector2 lowerRight, float? rejectionDistance,
+    private static List<Vector2> Sample(Vector2 topLeft, Vector2 lowerRight, float? rejectionDistance,
         float minimumDistance, int pointsPerIteration)
     {
         var settings = new Settings
@@ -75,7 +76,7 @@ public static class UniformPoissonDiskSampler
 
         while (state.ActivePoints.Count != 0)
         {
-            var listIndex = RandomHelper.Random.Next(state.ActivePoints.Count);
+            var listIndex = Random.Next(state.ActivePoints.Count);
 
             var point = state.ActivePoints[listIndex];
             var found = false;
@@ -90,15 +91,15 @@ public static class UniformPoissonDiskSampler
         return state.Points;
     }
 
-    static void AddFirstPoint(ref Settings settings, ref State state)
+    private static void AddFirstPoint(ref Settings settings, ref State state)
     {
         var added = false;
         while (!added)
         {
-            var d = RandomHelper.Random.NextDouble();
+            var d = Random.NextDouble();
             var xr = settings.TopLeft.X + settings.Dimensions.X * d;
 
-            d = RandomHelper.Random.NextDouble();
+            d = Random.NextDouble();
             var yr = settings.TopLeft.Y + settings.Dimensions.Y * d;
 
             var p = new Vector2((float)xr, (float)yr);
@@ -116,48 +117,48 @@ public static class UniformPoissonDiskSampler
         }
     }
 
-    static bool AddNextPoint(Vector2 point, ref Settings settings, ref State state)
+    private static bool AddNextPoint(Vector2 point, ref Settings settings, ref State state)
     {
         var found = false;
         var q = GenerateRandomAround(point, settings.MinimumDistance);
 
-        if (q.X >= settings.TopLeft.X && q.X < settings.LowerRight.X &&
-            q.Y > settings.TopLeft.Y && q.Y < settings.LowerRight.Y &&
-            (settings.RejectionSqDistance == null ||
-             Vector2.DistanceSquared(settings.Center, q) <= settings.RejectionSqDistance))
-        {
-            var qIndex = Denormalize(q, settings.TopLeft, settings.CellSize);
-            var tooClose = false;
+        if (!(q.X >= settings.TopLeft.X) || !(q.X < settings.LowerRight.X) ||
+            !(q.Y > settings.TopLeft.Y) || !(q.Y < settings.LowerRight.Y) ||
+            (settings.RejectionSqDistance != null &&
+             !(Vector2.DistanceSquared(settings.Center, q) <= settings.RejectionSqDistance)))
+            return found;
 
-            for (var i = (int)Math.Max(0, qIndex.X - 2);
-                 i < Math.Min(settings.GridWidth, qIndex.X + 3) && !tooClose;
-                 i++)
-            for (var j = (int)Math.Max(0, qIndex.Y - 2);
-                 j < Math.Min(settings.GridHeight, qIndex.Y + 3) && !tooClose;
-                 j++)
-                if (state.Grid[i, j].HasValue &&
-                    Vector2.Distance(state.Grid[i, j].Value, q) < settings.MinimumDistance)
-                    tooClose = true;
+        var qIndex = Denormalize(q, settings.TopLeft, settings.CellSize);
+        var tooClose = false;
 
-            if (!tooClose)
-            {
-                found = true;
-                state.ActivePoints.Add(q);
-                state.Points.Add(q);
-                state.Grid[(int)qIndex.X, (int)qIndex.Y] = q;
-            }
-        }
+        for (var i = (int)Math.Max(0, qIndex.X - 2);
+             i < Math.Min(settings.GridWidth, qIndex.X + 3) && !tooClose;
+             i++)
+        for (var j = (int)Math.Max(0, qIndex.Y - 2);
+             j < Math.Min(settings.GridHeight, qIndex.Y + 3) && !tooClose;
+             j++)
+            if (state.Grid[i, j].HasValue &&
+                Vector2.Distance(state.Grid[i, j]!.Value, q) < settings.MinimumDistance)
+                tooClose = true;
+
+        if (tooClose)
+            return found;
+
+        found = true;
+        state.ActivePoints.Add(q);
+        state.Points.Add(q);
+        state.Grid[(int)qIndex.X, (int)qIndex.Y] = q;
 
         return found;
     }
 
-    static Vector2 GenerateRandomAround(Vector2 center, float minimumDistance)
+    private static Vector2 GenerateRandomAround(Vector2 center, float minimumDistance)
     {
-        var d = RandomHelper.Random.NextDouble();
+        var d = Random.NextDouble();
         var radius = minimumDistance + minimumDistance * d;
 
-        d = RandomHelper.Random.NextDouble();
-        var angle = MathHelper.TwoPi * d;
+        d = Random.NextDouble();
+        var angle = (float)(Math.PI * 2) * d;
 
         var newX = radius * Math.Sin(angle);
         var newY = radius * Math.Cos(angle);
@@ -165,18 +166,6 @@ public static class UniformPoissonDiskSampler
         return new Vector2((float)(center.X + newX), (float)(center.Y + newY));
     }
 
-    static Vector2 Denormalize(Vector2 point, Vector2 origin, double cellSize) =>
+    private static Vector2 Denormalize(Vector2 point, Vector2 origin, double cellSize) =>
         new((int)((point.X - origin.X) / cellSize), (int)((point.Y - origin.Y) / cellSize));
-}
-
-public static class RandomHelper
-{
-    public static readonly Random Random = new();
-}
-
-public static class MathHelper
-{
-    public const float Pi = (float)Math.PI;
-    public const float HalfPi = (float)(Math.PI / 2);
-    public const float TwoPi = (float)(Math.PI * 2);
 }

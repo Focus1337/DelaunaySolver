@@ -1,45 +1,26 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Reactive.Concurrency;
-using System.Reactive.Linq;
-using System.Threading;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using Delaunay.Interfaces;
-using Delaunay.Models;
+using Point = Delaunay.Models.Point;
 
 namespace Delaunay.Wpf;
 
-/// <summary>
-/// Interaction logic for MainWindow.xaml
-/// </summary>
 public partial class MainWindow
 {
-    private Calculation _calculation;
-
+    private Triangulator? _triangulator;
     private readonly Brush _triangleBrush = Brushes.Black;
     private readonly Brush _triangleCircleBrush = Brushes.Red;
-
     private const string TimeFormat = @"hh\:mm\:ss";
-
-    #region Observables
-
-    private IObservable<TimeSpan> Interval(double time = 1)
-    {
-        var uiContext = SynchronizationContext.Current;
-        return Observable
-            .Interval(TimeSpan.FromSeconds(time))
-            .TimeInterval()
-            .Scan(TimeSpan.Zero, (result, item) => result + item.Interval)
-            .ObserveOn(new SynchronizationContextScheduler(uiContext!));
-    }
-
-    #endregion Observables
-
+    private Stopwatch? _stopwatch;
     private bool IsLengthOfPointsValid => _points.Count > 2;
     private readonly ObservableCollection<IPoint> _points = new();
 
@@ -52,10 +33,16 @@ public partial class MainWindow
     {
         var width = (float)(ActualWidth != 0 ? ActualWidth : Width);
         var height = (float)(ActualHeight != 0 ? ActualHeight : Height);
-        var samples = UniformPoissonDiskSampler.SampleCircle(new Vector2(width / 2, height / 3), 400, 40, 30)
+        var samplesCircle = UniformPoissonDiskSampler
+            .SampleCircle(new Vector2(width / 2, height / 3), (int)CircleRadius.Value, 40, 30)
             .Select(x => new Point(x.X, x.Y));
 
-        foreach (var sample in samples)
+        var samplesRectangle =
+            UniformPoissonDiskSampler
+                .SampleRectangle(new Vector2(width / 4, height / 6), new Vector2(width / 4 * 3, height / 6 * 4), 40, 30)
+                .Select(x => new Point(x.X, x.Y));
+
+        foreach (var sample in samplesCircle)
         {
             _points.Add(sample);
             PointsCount.Content = _points.Count.ToString();
@@ -63,13 +50,18 @@ public partial class MainWindow
         }
     }
 
-    private void DrawDelaunay()
+    private void Triangulate()
     {
         if (!IsLengthOfPointsValid)
             return;
 
+        _stopwatch = Stopwatch.StartNew();
         Refresh();
-        _calculation.ForEachTriangleEdge(edge => { DrawLine(edge.P, edge.Q, _triangleBrush); });
+
+        _triangulator?.ForEachTriangleEdge(edge => { DrawLine(edge.P, edge.Q, _triangleBrush); });
+        _stopwatch.Stop();
+
+        TriangulationTime.Content = _stopwatch.Elapsed;
     }
 
     private void ClearDrawArea() =>
@@ -77,13 +69,11 @@ public partial class MainWindow
 
     private void Refresh()
     {
-        if (!IsLengthOfPointsValid || _points.Count == _calculation?.Points.Length) return;
-        _calculation = new Calculation(_points.ToArray());
+        if (!IsLengthOfPointsValid || _points.Count == _triangulator?.Points.Length) return;
+        _triangulator = new Triangulator(_points.ToArray());
     }
 
-    #region Canvas
-
-    private void DrawCircle(IPoint point, Brush brush = null)
+    private void DrawCircle(IPoint point, Brush? brush = null)
     {
         var ellipse = new Ellipse
         {
@@ -114,24 +104,43 @@ public partial class MainWindow
         DrawArea.Children.Add(line);
     }
 
-    #endregion Canvas
+    private void SaveCanvasAsImage(Canvas canvas, string filePath)
+    {
+        // Создаем экземпляр класса RenderTargetBitmap с размерами Canvas
+        var renderBitmap = new RenderTargetBitmap(
+            (int)canvas.ActualWidth, (int)canvas.ActualHeight,
+            96, 96, PixelFormats.Pbgra32);
 
-    #region ClickHandlers
+        // Рендерим и сохраняем содержимое Canvas в RenderTargetBitmap
+        renderBitmap.Render(canvas);
 
-    private void OnClearClick(object sender, System.Windows.RoutedEventArgs e)
+        // Создаем экземпляр класса PngBitmapEncoder для сохранения изображения в формате PNG
+        var bitmapEncoder = new PngBitmapEncoder();
+        bitmapEncoder.Frames.Add(BitmapFrame.Create(renderBitmap));
+
+        // Сохраняем изображение в указанный файл
+        using var fileStream = new FileStream(filePath, FileMode.Create);
+        bitmapEncoder.Save(fileStream);
+    }
+
+    private void OnExportClick(object sender, RoutedEventArgs e) =>
+        SaveCanvasAsImage(DrawArea,
+            $"{Environment.GetFolderPath(Environment.SpecialFolder.Desktop)}\\t-result-{DateTime.Now:dd-MM-yyyy-h-mm-ss}.png");
+
+    private void OnClearClick(object sender, RoutedEventArgs e)
     {
         _points.Clear();
+        _stopwatch?.Reset();
         PointsCount.Content = 0.ToString();
+        TriangulationTime.Content = TimeSpan.Zero.ToString(TimeFormat);
         ClearDrawArea();
     }
 
-    private void OnGenerateSamplesClick(object sender, System.Windows.RoutedEventArgs e)
+    private void OnGeneratePointsClick(object sender, RoutedEventArgs e)
     {
-        for (var i = 0; i < 1000; i++)
+        for (var i = 0; i < 1; i++)
             GenerateSamples();
     }
 
-    private void OnDrawDelaunayClick(object sender, System.Windows.RoutedEventArgs e) => DrawDelaunay();
-
-    #endregion ClickHandlers
+    private void OnTriangulateClick(object sender, RoutedEventArgs e) => Triangulate();
 }

@@ -4,39 +4,55 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Delaunay.Wpf"
+        xmlns:customControls="clr-namespace:Delaunay.Wpf.CustomControls"
         mc:Ignorable="d"
-        Title="MainWindow" Height="600" Width="900">
+        Title="MainWindow" Height="900" Width="900">
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="1*" />
-            <RowDefinition Height="9*" />
+            <RowDefinition Height="12*" />
+            <RowDefinition Height="1*" />
             <RowDefinition Height="1*" />
         </Grid.RowDefinitions>
-        <DockPanel VerticalAlignment="Top">
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Left">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Label Content="Points count:"></Label>
-                    <Label x:Name="PointsCount" Content="0" />
-                </StackPanel>
+
+        <DockPanel VerticalAlignment="Top" Grid.Row="0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+                <Label Content="Points count:"></Label>
+                <Label x:Name="PointsCount" Content="0" />
             </StackPanel>
 
-            <StackPanel Orientation="Vertical" HorizontalAlignment="Right">
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Label Content="Time:"></Label>
-                    <Label x:Name="ApplicationTime" Content="00:00:00" />
-                </StackPanel>
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Label Content="Render time:"></Label>
+                <Label x:Name="TriangulationTime" Content="00:00:00" />
             </StackPanel>
         </DockPanel>
-        <Canvas x:Name="DrawArea" Grid.Row="1" Grid.ColumnSpan="5">
-            <Rectangle Width="10" Height="10" Visibility="Hidden" Stroke="Black" x:Name="Square" Canvas.Left="50"
-                       Canvas.Top="50">
-            </Rectangle>
+
+        <!-- <customControls:PanAndZoomCanvas x:Name="DrawArea" Grid.Row="1" Grid.ColumnSpan="5" VerticalAlignment="Stretch" -->
+        <!--                                  HorizontalAlignment="Stretch" /> -->
+        
+        <Canvas x:Name="DrawArea" Grid.Row="1" Grid.ColumnSpan="5" VerticalAlignment="Stretch"
+                HorizontalAlignment="Stretch">
         </Canvas>
 
-        <DockPanel HorizontalAlignment="Stretch" Grid.Row="2">
-            <Button Content="Generate points" Width="300" Click="OnGenerateSamplesClick" />
-            <Button Content="Draw delaunay" Width="300" Click="OnDrawDelaunayClick" />
-            <Button Content="Clear" Width="300" Click="OnClearClick" />
+        <Grid Grid.Row="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Button Content="Generate points" Grid.Column="0" Click="OnGeneratePointsClick" />
+            <Button Content="Triangulate" Grid.Column="1" Click="OnTriangulateClick" />
+            <Button Content="Clear" Grid.Column="2" Click="OnClearClick" />
+            <Button Content="Export" Grid.Column="3" Click="OnExportClick" />
+        </Grid>
+
+        <DockPanel HorizontalAlignment="Stretch" Margin="10" Grid.Row="3">
+            <TextBox Text="{Binding ElementName=CircleRadius, Path=Value, UpdateSourceTrigger=PropertyChanged}"
+                     DockPanel.Dock="Right" TextAlignment="Right" Width="40" />
+            <Slider Maximum="500" TickPlacement="BottomRight" TickFrequency="5" IsSnapToTickEnabled="True"
+                    Name="CircleRadius" Value="220" />
         </DockPanel>
     </Grid>
 </Window>

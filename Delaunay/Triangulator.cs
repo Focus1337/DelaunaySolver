@@ -3,7 +3,7 @@ using Delaunay.Models;
 
 namespace Delaunay;
 
-public class Calculation
+public class Triangulator
 {
     private readonly double EPSILON = Math.Pow(2, -52);
     private readonly int[] EDGE_STACK = new int[512];
@@ -19,7 +19,7 @@ public class Calculation
     public int[] Halfedges { get; }
 
     /// <summary>
-    /// The initial points Calculation was constructed with.
+    /// The initial points Triangulator was constructed with.
     /// </summary>
     public IPoint[] Points { get; }
 
@@ -42,7 +42,7 @@ public class Calculation
     private readonly int _hullStart;
     private readonly int _hullSize;
 
-    public Calculation(IPoint[] points)
+    public Triangulator(IPoint[] points)
     {
         if (points.Length < 3)
             throw new ArgumentOutOfRangeException("Need at least 3 points");
@@ -303,7 +303,11 @@ public class Calculation
         Halfedges = Halfedges.Take(_trianglesLen).ToArray();
     }
 
-    #region CreationLogic
+    public void ForEachTriangleEdge(Action<IEdge> callback)
+    {
+        foreach (var edge in GetEdges())
+            callback?.Invoke(edge);
+    }
 
     private int Legalize(int a)
     {
@@ -543,11 +547,7 @@ public class Calculation
         return dx * dx + dy * dy;
     }
 
-    #endregion CreationLogic
-
-    #region GetMethods
-
-    public IEnumerable<IEdge> GetEdges()
+    private IEnumerable<IEdge> GetEdges()
     {
         for (var e = 0; e < Triangles.Length; e++)
         {
@@ -560,23 +560,5 @@ public class Calculation
         }
     }
 
-    #endregion GetMethods
-
-    #region ForEachMethods
-
-    public void ForEachTriangleEdge(Action<IEdge> callback)
-    {
-        foreach (var edge in GetEdges())
-        {
-            callback?.Invoke(edge);
-        }
-    }
-
-    #endregion ForEachMethods
-
-    #region Methods based on index
-
-    public static int NextHalfedge(int e) => (e % 3 == 2) ? e - 2 : e + 1;
-
-    #endregion Methods based on index
+    private static int NextHalfedge(int e) => (e % 3 == 2) ? e - 2 : e + 1;
 }

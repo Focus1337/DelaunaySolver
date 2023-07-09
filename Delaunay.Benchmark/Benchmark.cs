@@ -21,5 +21,5 @@ public class Benchmark
         _points = _distribution.GetPoints(Type, Count).ToArray();
 
     [Benchmark]
-    public Calculation Delaunator() => new(_points);
+    public Triangulator Delaunator() => new(_points);
 }
