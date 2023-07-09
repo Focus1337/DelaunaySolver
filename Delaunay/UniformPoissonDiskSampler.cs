@@ -2,9 +2,11 @@
 
 namespace Delaunay;
 
-// http://theinstructionlimit.com/fast-uniform-poisson-disk-sampling-in-c
-// распределение/выборка Пуассона
-// это алгоритм для генерации равномерно распределенных точек в двумерном пространстве с минимальным расстоянием между точками
+/// <summary>
+/// Распределение/выборка Пуассона.
+/// Алгоритм для генерации равномерно распределенных точек в двумерном пространстве с минимальным расстоянием между точками.
+/// Взял отсюда: http://theinstructionlimit.com/fast-uniform-poisson-disk-sampling-in-c
+/// </summary>
 public static class UniformPoissonDiskSampler
 {
     private static readonly Random Random = new();

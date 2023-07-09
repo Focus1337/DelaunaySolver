@@ -1,47 +1,49 @@
 ﻿using Delaunay.Interfaces;
 using Delaunay.Models;
 
+// ReSharper disable CommentTypo
+
 namespace Delaunay;
 
 public class Triangulator
 {
-    private readonly double EPSILON = Math.Pow(2, -52);
-    private readonly int[] EDGE_STACK = new int[512];
+    private readonly double _epsilon = Math.Pow(2, -52);
 
-    /// <summary>
-    /// One value per half-edge, containing the point index of where a given half edge starts.
-    /// </summary>
-    public int[] Triangles { get; }
+    // Это массив, используемый во время операции легализации ребер.
+    // Он служит в качестве стека для хранения индексов полуребер, которые требуют дальнейшей обработки.
+    private readonly int[] _edgeStack = new int[512];
 
-    /// <summary>
-    /// One value per half-edge, containing the opposite half-edge in the adjacent triangle, or -1 if there is no adjacent triangle
-    /// </summary>
-    public int[] Halfedges { get; }
+    // Массив, который хранит индексы точек, образующих треугольники. Каждые три последовательных элемента в массиве представляют один треугольник.
+    private int[] Triangles { get; }
 
-    /// <summary>
-    /// The initial points Triangulator was constructed with.
-    /// </summary>
+    // Массив, который хранит индексы полуребер. Каждое полуребро связывает две точки и указывает на индекс соседнего полуребра.
+    private int[] Halfedges { get; }
     public IPoint[] Points { get; }
 
-    /// <summary>
-    /// A list of point indices that traverses the hull of the points.
-    /// </summary>
-    public int[] Hull { get; }
-
+    // Массив, который хранит индексы точек, образующих выпуклую оболочку. Эти точки образуют внешний контур триангуляции.
+    private int[] Hull { get; }
     private readonly int _hashSize;
+
+    // Массивы, используемые для хранения информации о выпуклой оболочке. Они содержат индексы предыдущего и следующего полуребер,
+    // а также индексы треугольников и хэш-таблицу для быстрого доступа к полуребрам выпуклой оболочки.
     private readonly int[] _hullPrev;
     private readonly int[] _hullNext;
     private readonly int[] _hullTri;
     private readonly int[] _hullHash;
 
-    private readonly double cx;
-    private readonly double cy;
+    // Координаты центра триангуляции, которые используются для вычисления ориентации точек и определения выпуклой оболочки.
+    private readonly double _centerX;
+    private readonly double _centerY;
 
     private int _trianglesLen;
     private readonly double[] _coords;
     private readonly int _hullStart;
     private readonly int _hullSize;
 
+    /// <summary>
+    /// Алгоритм инкрементальной триангуляции Делоне. Этот алгоритм строит триангуляцию постепенно,
+    /// добавляя каждую точку по очереди и обновляя существующую триангуляцию.
+    /// </summary>
     public Triangulator(IPoint[] points)
     {
         if (points.Length < 3)
@@ -57,27 +59,28 @@ public class Triangulator
             _coords[2 * i + 1] = p.Y;
         }
 
-        var n = points.Length;
-        var maxTriangles = 2 * n - 5;
+        var pointsCount = points.Length;
+        var maxTriangles = 2 * pointsCount - 5;
 
         Triangles = new int[maxTriangles * 3];
 
         Halfedges = new int[maxTriangles * 3];
-        _hashSize = (int)Math.Ceiling(Math.Sqrt(n));
+        _hashSize = (int)Math.Ceiling(Math.Sqrt(pointsCount));
 
-        _hullPrev = new int[n];
-        _hullNext = new int[n];
-        _hullTri = new int[n];
+        _hullPrev = new int[pointsCount];
+        _hullNext = new int[pointsCount];
+        _hullTri = new int[pointsCount];
         _hullHash = new int[_hashSize];
 
-        var ids = new int[n];
+        var ids = new int[pointsCount];
 
         var minX = double.PositiveInfinity;
         var minY = double.PositiveInfinity;
         var maxX = double.NegativeInfinity;
         var maxY = double.NegativeInfinity;
 
-        for (var i = 0; i < n; i++)
+        // вычисляем минимальные и максимальные значения координат точек для определения центра триангуляции.
+        for (var i = 0; i < pointsCount; i++)
         {
             var x = _coords[2 * i];
             var y = _coords[2 * i + 1];
@@ -88,18 +91,18 @@ public class Triangulator
             ids[i] = i;
         }
 
-        var cx = (minX + maxX) / 2;
-        var cy = (minY + maxY) / 2;
+        var centerX = (minX + maxX) / 2;
+        var centerY = (minY + maxY) / 2;
 
         var minDist = double.PositiveInfinity;
         var i0 = 0;
         var i1 = 0;
         var i2 = 0;
 
-        // pick a seed point close to the center
-        for (int i = 0; i < n; i++)
+        // выбираем начальную (i0) ближайшую точку к центру триангуляции
+        for (var i = 0; i < pointsCount; i++)
         {
-            var d = Dist(cx, cy, _coords[2 * i], _coords[2 * i + 1]);
+            var d = Dist(centerX, centerY, _coords[2 * i], _coords[2 * i + 1]);
             if (d < minDist)
             {
                 i0 = i;
@@ -112,8 +115,8 @@ public class Triangulator
 
         minDist = double.PositiveInfinity;
 
-        // find the point closest to the seed
-        for (int i = 0; i < n; i++)
+        // находим вторую точку
+        for (var i = 0; i < pointsCount; i++)
         {
             if (i == i0) continue;
             var d = Dist(i0x, i0y, _coords[2 * i], _coords[2 * i + 1]);
@@ -129,8 +132,8 @@ public class Triangulator
 
         var minRadius = double.PositiveInfinity;
 
-        // find the third point which forms the smallest circumcircle with the first two
-        for (var i = 0; i < n; i++)
+        // и находим третью; эти точки образуют наименьший описывающий окружности треугольник с первой точкой.
+        for (var i = 0; i < pointsCount; i++)
         {
             if (i == i0 || i == i1) continue;
             var r = Circumradius(i0x, i0y, i1x, i1y, _coords[2 * i], _coords[2 * i + 1]);
@@ -144,7 +147,8 @@ public class Triangulator
         var i2x = _coords[2 * i2];
         var i2y = _coords[2 * i2 + 1];
 
-        if (minRadius == double.PositiveInfinity)
+        // Проверяем, существует ли такой треугольник.
+        if (double.IsPositiveInfinity(minRadius))
             throw new Exception("No Delaunay triangulation exists for this input.");
 
         if (Orient(i0x, i0y, i1x, i1y, i2x, i2y))
@@ -161,19 +165,17 @@ public class Triangulator
         }
 
         var center = Circumcenter(i0x, i0y, i1x, i1y, i2x, i2y);
-        this.cx = center.X;
-        this.cy = center.Y;
+        _centerX = center.X;
+        _centerY = center.Y;
 
-        var dists = new double[n];
-        for (var i = 0; i < n; i++)
-        {
+        var dists = new double[pointsCount];
+        for (var i = 0; i < pointsCount; i++)
             dists[i] = Dist(_coords[2 * i], _coords[2 * i + 1], center.X, center.Y);
-        }
 
-        // sort the points by distance from the seed triangle circumcenter
-        Quicksort(ids, dists, 0, n - 1);
+        // сортируем точки по расстоянию от центра окружности начального треугольника
+        Quicksort(ids, dists, 0, pointsCount - 1);
 
-        // set up the seed triangle as the starting hull
+        // устанавливаем начальную выпуклую оболочку, состоящую из начального треугольника
         _hullStart = i0;
         _hullSize = 3;
 
@@ -202,14 +204,14 @@ public class Triangulator
             var y = _coords[2 * i + 1];
 
             // skip near-duplicate points
-            if (k > 0 && Math.Abs(x - xp) <= EPSILON && Math.Abs(y - yp) <= EPSILON) continue;
+            if (k > 0 && Math.Abs(x - xp) <= _epsilon && Math.Abs(y - yp) <= _epsilon) continue;
             xp = x;
             yp = y;
 
             // skip seed triangle points
             if (i == i0 || i == i1 || i == i2) continue;
 
-            // find a visible edge on the convex hull using edge hash
+            // находим видимое ребро на выпуклой оболочке, используя хэш-таблицу ребер
             var start = 0;
             for (var j = 0; j < _hashSize; j++)
             {
@@ -217,7 +219,6 @@ public class Triangulator
                 start = _hullHash[(key + j) % _hashSize];
                 if (start != -1 && start != _hullNext[start]) break;
             }
-
 
             start = _hullPrev[start];
             var e = start;
@@ -237,10 +238,10 @@ public class Triangulator
 
             if (e == int.MaxValue) continue; // likely a near-duplicate point; skip it
 
-            // add the first triangle from the point
+            // Добавляем новый треугольник, связанный с точкой
             var t = AddTriangle(e, i, _hullNext[e], -1, -1, _hullTri[e]);
 
-            // recursively flip triangles from the point until they satisfy the Delaunay condition
+            // выполняем рекурсивное переворачивание треугольников до выполнения условия Делоне
             _hullTri[i] = Legalize(t + 2);
             _hullTri[e] = t; // keep track of boundary triangles on the hull
             _hullSize++;
@@ -278,16 +279,17 @@ public class Triangulator
                 }
             }
 
-            // update the hull indices
+            // обновляем индексы выпуклой оболочки
             _hullStart = _hullPrev[i] = e;
             _hullNext[e] = _hullPrev[next] = i;
             _hullNext[i] = next;
 
-            // save the two new edges in the hash table
+            // и хэш-таблицу ребер
             _hullHash[HashKey(x, y)] = i;
             _hullHash[HashKey(_coords[2 * e], _coords[2 * e + 1])] = e;
         }
 
+        // ФормируеМ массив Hull, содержащий индексы точек выпуклой оболочки.
         Hull = new int[_hullSize];
         var s = _hullStart;
         for (var i = 0; i < _hullSize; i++)
@@ -296,32 +298,41 @@ public class Triangulator
             s = _hullNext[s];
         }
 
-        _hullPrev = _hullNext = _hullTri = null; // get rid of temporary arrays
+        _hullPrev = _hullNext = _hullTri = null; // удалим лишние массивы
 
-        //// trim typed triangle mesh arrays
+        // обрезаем массивы Triangles и Halfedges, чтобы они содержали только треугольники, созданные во время триангуляции.
         Triangles = Triangles.Take(_trianglesLen).ToArray();
         Halfedges = Halfedges.Take(_trianglesLen).ToArray();
     }
 
+    /// <summary>
+    /// Метод, который позволяет произвести действие с каждым ребром треугольника с помощью колбэка 
+    /// </summary>
     public void ForEachTriangleEdge(Action<IEdge> callback)
     {
         foreach (var edge in GetEdges())
             callback?.Invoke(edge);
     }
 
+    /// <summary>
+    /// Выполняет операцию "легализации" ребра в триангуляции. Эта операция гарантирует, что ребро удовлетворяет
+    /// условию Делоне, то есть точка p1 не находится в окружности, описанной вокруг треугольника,
+    /// образованного точками p0, pl и pr. Если ребро не удовлетворяет условию Делоне, оно "переворачивается" путем замены точек p0 и p1 местами.
+    /// </summary>
     private int Legalize(int a)
     {
         var i = 0;
         int ar;
 
-        // recursion eliminated with a fixed-size stack
+        // рекурсия устраняется благодаря стеку фиксированного размера edgeStack
         while (true)
         {
+            // получаем связанное с a полуребро b
             var b = Halfedges[a];
 
-            /* if the pair of triangles doesn't satisfy the Delaunay condition
-             * (p1 is inside the circumcircle of [p0, pl, pr]), flip them,
-             * then do the same check/flip recursively for the new pair of triangles
+            /* если пара треугольников не удовлетворяет условию Делоне
+             * (p1 находится внутри описанной окружности [p0, pl, pr]), перевернем их,
+             * затем выполним ту же проверку/переворот рекурсивно для новой пары треугольников
              *
              *           pl                    pl
              *          /||\                  /  \
@@ -334,14 +345,14 @@ public class Triangulator
              *          \||/                  \  /
              *           pr                    pr
              */
-            int a0 = a - a % 3;
+            var a0 = a - a % 3;
             ar = a0 + (a + 2) % 3;
 
             if (b == -1)
             {
                 // convex hull edge
                 if (i == 0) break;
-                a = EDGE_STACK[--i];
+                a = _edgeStack[--i];
                 continue;
             }
 
@@ -349,11 +360,13 @@ public class Triangulator
             var al = a0 + (a + 1) % 3;
             var bl = b0 + (b + 2) % 3;
 
+            // находим индексы точек треугольника p
             var p0 = Triangles[ar];
             var pr = Triangles[a];
             var pl = Triangles[al];
             var p1 = Triangles[bl];
 
+            // проверка "внутри окружности?"
             var illegal = InCircle(
                 _coords[2 * p0], _coords[2 * p0 + 1],
                 _coords[2 * pr], _coords[2 * pr + 1],
@@ -362,12 +375,11 @@ public class Triangulator
 
             if (illegal)
             {
+                // если внутри, то делаем свап p0 и p1
                 Triangles[a] = p1;
                 Triangles[b] = p0;
 
                 var hbl = Halfedges[bl];
-
-                // edge swapped on the other side of the hull (rare); fix the halfedge reference
                 if (hbl == -1)
                 {
                     var e = _hullStart;
@@ -383,28 +395,37 @@ public class Triangulator
                     } while (e != _hullStart);
                 }
 
+                // Обновляем ссылки на полуребра, связанные с ребром.
+                // Если полуребро bl (связанное с ребром на другой стороне оболочки) не имеет ссылки на полуребро,
+                // метод выполняет поиск полуребра bl в оболочке и обновляет его ссылку на a.
                 Link(a, hbl);
                 Link(b, Halfedges[ar]);
                 Link(ar, bl);
 
                 var br = b0 + (b + 1) % 3;
 
-                // don't worry about hitting the cap: it can only happen on extremely degenerate input
-                if (i < EDGE_STACK.Length)
-                {
-                    EDGE_STACK[i++] = br;
-                }
+                // Добавляет индекс полуребра br (связанного с ребром на другой стороне) в стек _edgeStack для последующей обработки.
+                if (i < _edgeStack.Length)
+                    _edgeStack[i++] = br;
             }
             else
             {
+                // проверяем, есть ли ещё индексы полуребер в стеке, если нет - процесс легализации пройден
                 if (i == 0) break;
-                a = EDGE_STACK[--i];
+                a = _edgeStack[--i];
             }
         }
 
         return ar;
     }
 
+    /// <summary>
+    /// Для определения, находится ли точка P внутри окружности, описанной вокруг треугольника с вершинами A, B и C.
+    /// Метод возвращает true, если точка P находится внутри окружности, и false в противном случае.
+    /// </summary>
+    /// <param name="ax">Коорд X точки A</param>
+    /// <param name="ay">Коорд Y точки A</param>
+    /// <returns>Находится или нет внутри окружности</returns>
     private static bool InCircle(double ax, double ay, double bx, double by, double cx, double cy, double px, double py)
     {
         var dx = ax - px;
@@ -423,6 +444,12 @@ public class Triangulator
             ap * (ex * fy - ey * fx) < 0;
     }
 
+    /// <summary>
+    /// Для добавления нового треугольника в список треугольников и установки связей между треугольниками.
+    /// Аргументы метода i0, i1 и i2 представляют индексы вершин треугольника в списке вершин.
+    /// Аргументы a, b и c представляют индексы смежных треугольников.
+    /// </summary>
+    /// <returns>Индекс нового треугольника t</returns>
     private int AddTriangle(int i0, int i1, int i2, int a, int b, int c)
     {
         var t = _trianglesLen;
@@ -439,19 +466,32 @@ public class Triangulator
         return t;
     }
 
+    /// <summary>
+    /// Используется для установки связи между двумя ребрами треугольников.
+    /// </summary>
+    /// <param name="a">Индекс ребра в списке полуребер (одна сторона треуг)</param>
+    /// <param name="b">Индекс ребра в списке полуребер (смежная сторона треуг)</param>
     private void Link(int a, int b)
     {
         Halfedges[a] = b;
         if (b != -1) Halfedges[b] = a;
     }
 
+    /// <summary>
+    /// Используется для хэширования и сортировки вершин треугольников.
+    /// Принимает координаты x и y вершины и возвращает хеш-ключ, который используется для индексации вершин в хэш-таблице.
+    /// Хеш-таблица используется для быстрого поиска ближайших соседей вершин.
+    /// </summary>
     private int HashKey(double x, double y) =>
-        (int)(Math.Floor(PseudoAngle(x - cx, y - cy) * _hashSize) % _hashSize);
+        (int)(Math.Floor(PseudoAngle(x - _centerX, y - _centerY) * _hashSize) % _hashSize);
 
-    private static double PseudoAngle(double dx, double dy)
+    /// <summary>
+    /// Принимает разности dx и dy координат и вычисляет псевдоугол, который используется для сортировки вершин.
+    /// </summary>
+    private static double PseudoAngle(double diffX, double diffY)
     {
-        var p = dx / (Math.Abs(dx) + Math.Abs(dy));
-        return (dy > 0 ? 3 - p : 1 + p) / 4; // [0..1]
+        var normalizedDiffX = diffX / (Math.Abs(diffX) + Math.Abs(diffY));
+        return (diffY > 0 ? 3 - normalizedDiffX : 1 + normalizedDiffX) / 4;
     }
 
     private static void Quicksort(int[] ids, double[] dists, int left, int right)
@@ -508,9 +548,23 @@ public class Triangulator
     private static void Swap(int[] arr, int i, int j) =>
         (arr[i], arr[j]) = (arr[j], arr[i]);
 
+    /// <summary>
+    /// Для определения ориентации трех точек в плоскости.
+    /// Он принимает координаты трех точек (px, py), (qx, qy) и (rx, ry) и возвращает булевое значение,
+    /// указывающее на направление обхода этих точек.
+    /// </summary>
+    /// <returns>Если значение выражения больше или равно нулю, то это означает, что тройка точек образует
+    /// поворот вправо (по часовой стрелке) или лежит на одной прямой. В этом случае метод возвращает false.
+    /// Если значение выражения меньше нуля, то это означает, что тройка точек (px, py), (qx, qy) и (rx, ry)
+    /// образует поворот влево (против часовой стрелки). В этом случае метод возвращает true.</returns>
     private static bool Orient(double px, double py, double qx, double qy, double rx, double ry) =>
         (qy - py) * (rx - qx) - (qx - px) * (ry - qy) < 0;
 
+    /// <summary>
+    /// Для вычисления радиуса описанной окружности треугольника.
+    /// Он принимает координаты трех вершин треугольника (ax, ay), (bx, by) и (cx, cy)
+    /// </summary>
+    /// <returns>возвращает квадрат радиуса описанной окружности</returns>
     private static double Circumradius(double ax, double ay, double bx, double by, double cx, double cy)
     {
         var dx = bx - ax;
@@ -525,6 +579,11 @@ public class Triangulator
         return x * x + y * y;
     }
 
+    /// <summary>
+    /// Для вычисления центра описанной окружности треугольника.
+    /// Он принимает координаты трех вершин треугольника (ax, ay), (bx, by) и (cx, cy)
+    /// </summary>
+    /// <returns>возвращает объект Point, представляющий координаты центра описанной окружности</returns>
     private static Point Circumcenter(double ax, double ay, double bx, double by, double cx, double cy)
     {
         var dx = bx - ax;
@@ -542,23 +601,29 @@ public class Triangulator
 
     private static double Dist(double ax, double ay, double bx, double by)
     {
-        var dx = ax - bx;
-        var dy = ay - by;
-        return dx * dx + dy * dy;
+        var diffX = ax - bx;
+        var diffY = ay - by;
+        return diffX * diffX + diffY * diffY;
     }
 
+    /// <summary>
+    /// Для получения списка ребер (экземпляров IEdge) триангуляции.
+    /// Он выполняет итерацию по массиву Triangles, который содержит индексы точек треугольников,
+    /// и создает ребра между точками треугольников.
+    /// </summary>
     private IEnumerable<IEdge> GetEdges()
     {
         for (var e = 0; e < Triangles.Length; e++)
-        {
             if (e > Halfedges[e])
             {
                 var p = Points[Triangles[e]];
                 var q = Points[Triangles[NextHalfedge(e)]];
                 yield return new Edge(e, p, q);
             }
-        }
     }
 
+    /// <summary>
+    /// Для получения индекса следующего полуребра в триангуляции.
+    /// </summary>
     private static int NextHalfedge(int e) => (e % 3 == 2) ? e - 2 : e + 1;
 }
