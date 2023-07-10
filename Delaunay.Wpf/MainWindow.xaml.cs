@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Numerics;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
@@ -23,10 +25,25 @@ public partial class MainWindow
     private Stopwatch? _stopwatch;
     private bool IsLengthOfPointsValid => _points.Count > 2;
     private readonly ObservableCollection<IPoint> _points = new();
+    private Figure _currentFigure;
+
+    private enum Figure
+    {
+        Circle,
+        Rectangle
+    }
 
     public MainWindow()
     {
         InitializeComponent();
+        TypeComboBox.ItemsSource = new[]
+        {
+            Figure.Circle,
+            Figure.Rectangle
+        };
+
+        TypeComboBox.SelectedIndex = 0;
+        _currentFigure = Figure.Circle;
     }
 
     private void GenerateSamples()
@@ -38,17 +55,14 @@ public partial class MainWindow
             .SampleCircle(new Vector2(width / 2, height / 3), (int)CircleRadius.Value, 40)
             .Select(x => new Point(x.X, x.Y));
 
-        // var samplesRectangle =
-        //     UniformPoissonDiskSampler
-        //         .SampleRectangle(new Vector2(width / 4, height / 6), new Vector2(width / 4 * 3, height / 6 * 4), 40)
-        //         .Select(x => new Point(x.X, x.Y));
-
         var samplesRectangle =
             UniformPoissonDiskSampler
-                .SampleRectangle(new Vector2(0, 0), new Vector2(1000, 1000), 40)
+                .SampleRectangle(new Vector2(width / 4, 0),
+                    new Vector2(width / 4 + int.Parse(RectWidth.Text), int.Parse(RectHeight.Text)),
+                    40)
                 .Select(x => new Point(x.X, x.Y));
 
-        foreach (var sample in samplesRectangle)
+        foreach (var sample in _currentFigure == Figure.Circle ? samplesCircle : samplesRectangle)
         {
             _points.Add(sample);
             PointsCount.Content = _points.Count.ToString();
@@ -146,4 +160,30 @@ public partial class MainWindow
     }
 
     private void OnTriangulateClick(object sender, RoutedEventArgs e) => Triangulate();
+
+    private void OnFigureTypeChange(object sender, SelectionChangedEventArgs e)
+    {
+        if (TypeComboBox.SelectedItem is not Figure)
+            return;
+
+        switch (TypeComboBox.SelectedItem)
+        {
+            case Figure.Circle:
+                _currentFigure = Figure.Circle;
+                CircleStackPanel.Visibility = Visibility.Visible;
+                RectangleStackPanel.Visibility = Visibility.Collapsed;
+                break;
+            case Figure.Rectangle:
+                _currentFigure = Figure.Rectangle;
+                CircleStackPanel.Visibility = Visibility.Collapsed;
+                RectangleStackPanel.Visibility = Visibility.Visible;
+                break;
+        }
+    }
+
+    private void NumberValidationTextBox(object sender, TextCompositionEventArgs e)
+    {
+        var regex = new Regex("[^0-9]+");
+        e.Handled = regex.IsMatch(e.Text);
+    }
 }

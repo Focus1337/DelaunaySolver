@@ -53,20 +53,45 @@
 
         <DockPanel HorizontalAlignment="Stretch" Margin="10" Grid.Row="3">
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left">
+            <ComboBox x:Name="TypeComboBox" SelectionChanged="OnFigureTypeChange" Height="40"
+                      VerticalContentAlignment="Center" HorizontalContentAlignment="Center">
+            </ComboBox>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" x:Name="CircleStackPanel">
+                <Label Content="Radius:" Height="40" VerticalContentAlignment="Center"
+                       HorizontalContentAlignment="Center">
+                </Label>
                 <Slider Maximum="500" TickPlacement="BottomRight" TickFrequency="5" IsSnapToTickEnabled="True"
-                        Width="350" Minimum="1"
-                        Name="CircleRadius" Value="220" />
+                        Width="350" Minimum="1" VerticalAlignment="Center" Name="CircleRadius" Value="220" />
                 <TextBox Text="{Binding ElementName=CircleRadius, Path=Value, UpdateSourceTrigger=PropertyChanged}"
-                         DockPanel.Dock="Right" TextAlignment="Right" Width="40" />
+                         Height="20" Width="80" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                         PreviewTextInput="NumberValidationTextBox" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" x:Name="RectangleStackPanel">
+                <Label Content="Width:" Height="40" VerticalContentAlignment="Center"
+                       HorizontalContentAlignment="Center">
+                </Label>
+                <TextBox Text="1000" Name="RectWidth" Height="20" Width="80" VerticalContentAlignment="Center"
+                         HorizontalContentAlignment="Center" PreviewTextInput="NumberValidationTextBox" />
+
+                <Label Content="Height:" Height="40" VerticalContentAlignment="Center"
+                       HorizontalContentAlignment="Center">
+                </Label>
+                <TextBox Text="1000" Name="RectHeight" Height="20" Width="80"
+                         PreviewTextInput="NumberValidationTextBox"
+                         VerticalContentAlignment="Center" HorizontalContentAlignment="Center" />
             </StackPanel>
 
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Label Content="Points:" Height="40" VerticalContentAlignment="Center"
+                       HorizontalContentAlignment="Center">
+                </Label>
                 <Slider Maximum="1000000" TickPlacement="BottomRight" IsSnapToTickEnabled="True"
-                        Width="350" Minimum="1"
-                        Name="PointsMultiplier" Value="1000" />
+                        Width="350" Minimum="1" VerticalAlignment="Center" Name="PointsMultiplier" Value="1000" />
                 <TextBox Text="{Binding ElementName=PointsMultiplier, Path=Value, UpdateSourceTrigger=PropertyChanged}"
-                         DockPanel.Dock="Right" TextAlignment="Right" Width="40" />
+                         Height="20" Width="80" VerticalContentAlignment="Center" HorizontalContentAlignment="Center"
+                         PreviewTextInput="NumberValidationTextBox" />
             </StackPanel>
         </DockPanel>
     </Grid>
